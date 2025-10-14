@@ -1,1 +1,224 @@
-# RAG_assist
+Pipeline Assistant: A Website-Specific RAG QA System
+Pipeline Assistant is a self-contained, conversational AI tool that answers questions about a specific website. It allows a user to input any website URL, crawls up to 30 pages of the site, indexes the content, and provides a sleek, chat-based interface to ask questions.
+
+The system is built on a Retrieval-Augmented Generation (RAG) architecture, ensuring that all answers are grounded strictly in the site's content and are accompanied by source citations.
+
+Key Features
+Dynamic On-Demand Indexing: Simply provide a URL to start the crawling and indexing process.
+
+Conversational Chat Interface: A modern, full-screen chatbot UI for a natural user experience.
+
+Grounded & Cited Answers: Leverages the Google Gemini API with a hardened prompt to prevent hallucinations. Every answer is based on retrieved text snippets, which are displayed to the user.
+
+Real-time Feedback: The UI provides live status updates during the crawling process and thinking animations while generating answers.
+
+Intelligent Refusals: If the answer cannot be found in the crawled content, the assistant will explicitly state that, maintaining trust and accuracy.
+
+Architecture
+The system follows a classic RAG pipeline, separated into a frontend, a web server, and a backend logic module for clear separation of concerns.
+
+1. Frontend (templates/index.html)
+A single-page application with HTML, CSS, and JavaScript.
+
+Responsibilities:
+
+Provides the full-screen chat interface.
+
+Manages the application's state (AWAITING_URL, CRAWLING, READY_TO_CHAT).
+
+Communicates with the Flask backend via asynchronous fetch requests.
+
+Renders user queries, assistant responses, status messages, and source citations.
+
+Includes UI flourishes like loading animations and a typewriter effect for responses.
+
+2. Web Server (flask_app.py)
+A lightweight Flask application that acts as the API layer between the frontend and the backend.
+
+API Endpoints:
+
+/: Serves the main index.html file.
+
+/start-crawl: Receives a URL, initializes the backend crawler in a background thread, and starts the indexing process.
+
+/crawl-status: Allows the frontend to poll for the current status of the crawl (number of pages indexed, completion status).
+
+/ask: Receives a user's question, passes it to the QA Engine, and returns the generated answer along with its sources.
+
+3. Backend Logic (backend_app.py)
+This module contains the core RAG pipeline components:
+
+WebCrawler:
+
+Uses requests to fetch HTML content and BeautifulSoup4 to parse it.
+
+Extracts clean text and discovers new links on the same domain.
+
+Includes a max_pages limit (set to 30) to control the scope and duration of the crawl.
+
+VectorStore:
+
+Chunking: Uses langchain.RecursiveCharacterTextSplitter to break down large texts into smaller, semantically coherent chunks.
+
+Embedding: Uses Google's text-embedding-004 model to convert text chunks into numerical vectors.
+
+Indexing: Employs faiss-cpu, a highly efficient in-memory library for similarity search, to store and index the vectors.
+
+QAEngine:
+
+Retrieval: When a question is asked, it first embeds the query and uses FAISS to find the most relevant text chunks from the index.
+
+Generation: It constructs a "hardened prompt" for the gemini-1.5-flash model. This prompt includes the user's question along with the retrieved text chunks as context, and contains strict instructions for the model:
+
+Answer only based on the provided context.
+
+Do not use any outside knowledge.
+
+If the answer isn't in the context, respond with a specific refusal message.
+
+This critical step ensures the model's responses are grounded and trustworthy.
+
+Tooling and Prompts
+For transparency and reproducibility, here is a list of the core components used in this project.
+
+LLMs & Embedding Models (via Google Gemini API)
+Generation Model: gemini-1.5-flash - Used for its speed, cost-effectiveness, and strong instruction-following capabilities.
+
+Embedding Model: text-embedding-004 - A powerful and efficient model for generating vector representations of text for both documents and queries.
+
+Key Libraries
+Web Framework: Flask
+
+LLM API Client: google-generativeai
+
+Web Crawling: requests, beautifulsoup4
+
+Vector Indexing & Search: faiss-cpu
+
+Text Processing: langchain (for RecursiveCharacterTextSplitter)
+
+Numerical Operations: numpy
+
+Prompt Template
+The prompt sent to the gemini-1.5-flash model is explicitly engineered to prevent hallucinations and ensure answers are grounded. The structure is as follows:
+
+You are a helpful AI assistant. Your task is to answer the user's question based *strictly* on the provided context below.
+
+**Context:**
+---
+Source URL: {url_1}
+Content: {snippet_1}
+---
+Source URL: {url_2}
+Content: {snippet_2}
+...
+
+**Instructions:**
+1. Analyze the context carefully.
+2. Answer the user's question using only information found in the context.
+3. Do not use any external knowledge or make assumptions.
+4. If the answer cannot be found in the context, you MUST respond with "I cannot answer this question based on the provided information."
+5. Cite the source URL(s) you used to formulate the answer.
+
+**Question:** {user_question}
+
+**Answer:**
+
+
+Getting Started
+Follow these steps to run the application locally.
+
+Prerequisites
+Python 3.8+
+
+A Google Gemini API Key
+
+Installation & Setup
+Project Structure:
+Ensure your files are arranged correctly:
+
+/rag_project
+├── backend_app.py
+├── flask_app.py
+└── /templates
+    └── index.html
+
+Create a Virtual Environment:
+It is highly recommended to use a virtual environment.
+
+# For Windows
+python -m venv venv
+venv\Scripts\activate
+
+# For macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
+
+Install Dependencies:
+
+pip install flask google-generativeai beautifulsoup4 requests faiss-cpu langchain numpy
+
+Set Environment Variable:
+You must set your Gemini API key as an environment variable.
+
+# For Windows (Command Prompt)
+set GOOGLE_API_KEY="YOUR_API_KEY_HERE"
+
+# For macOS/Linux
+export GOOGLE_API_KEY="YOUR_API_KEY_HERE"
+
+Run the Application:
+
+python flask_app.py
+
+Access the UI:
+Open your web browser and navigate to http://127.0.0.1:5001.
+
+Design Decisions & Tradeoffs
+In-Memory Vector Store (FAISS-CPU)
+
+Pro: Extremely fast for searching and requires zero setup, making it perfect for a single-session application.
+
+Tradeoff: The index is volatile. It is lost every time the application is restarted, requiring a new crawl. For persistence, a database solution like ChromaDB or saving the FAISS index to disk would be necessary.
+
+Background Thread for Crawling
+
+Pro: The simplest way to run the crawl without blocking the main Flask server, allowing the UI to remain responsive.
+
+Tradeoff: This approach is not robust for production. It lacks proper error handling, scalability, and state management. A dedicated task queue (e.g., Celery with Redis) would be a more resilient solution.
+
+Basic Text Extraction (BeautifulSoup.get_text())
+
+Pro: Fast and effective for static, well-structured HTML.
+
+Tradeoff: This method cannot process JavaScript-rendered content. Many modern websites (Single-Page Applications) will yield little to no content. It also may not optimally handle complex layouts like tables or sidebars.
+
+Limitations and Next Steps
+This project serves as a strong proof-of-concept but has several limitations that offer clear paths for future improvement.
+
+Current Limitations
+No JavaScript Rendering: Cannot crawl modern, dynamic websites effectively.
+
+No Persistent State: All indexed data is lost on restart.
+
+Limited Scalability: The global state management and threading model are not suitable for multiple users or long-running tasks.
+
+No Crawl Resumption: If the crawl is interrupted, it must start over from the beginning.
+
+Hardcoded Parameters: Key settings like max_pages, chunk size, and model names are fixed in the code.
+
+Recommended Next Steps
+Integrate a Persistent Vector Database: Replace the in-memory FAISS index with ChromaDB or a similar tool to store embeddings and metadata permanently.
+
+Implement an Advanced Crawler: Replace requests with a browser automation tool like Playwright or Selenium to properly render JavaScript-heavy websites and extract their content.
+
+Introduce a Task Queue: Refactor the backend to use Celery and Redis for managing crawling and indexing tasks asynchronously. This will improve reliability, scalability, and error handling.
+
+Add Configuration Options: Enhance the UI to allow users to set parameters like crawl depth, chunk size, or even choose the embedding model.
+
+Implement Chat History: Store and display the conversation history for each session in the UI.
+
+Improve Data Cleaning: Add more sophisticated text cleaning logic to better handle artifacts from navigation bars, footers, and advertisements.
+
+Attributions
+This project is a custom implementation inspired by common architectural patterns for Retrieval-Augmented Generation (RAG) systems. No specific starter code or third-party templates were adapted directly.
