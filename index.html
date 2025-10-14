@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Assistant</title>
+    <style>
+        :root {
+            --bg-color: #f5f0e1; /* Beige */
+            --primary-color: #ffc2d1; /* Pink */
+            --secondary-color: #b392ac; /* Muted Purple */
+            --text-color: #3d3d3d;
+            --white-color: #ffffff;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+        }
+
+        .chat-container {
+            width: 100vw;
+            height: 100vh;
+            background: var(--white-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--white-color);
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+        }
+
+        .chat-header h1 {
+            margin: 0;
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+
+        .chat-box {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            max-width: 80%;
+            line-height: 1.5;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeIn 0.3s forwards;
+        }
+
+        .assistant-message {
+            background-color: #eef1f5;
+            color: var(--text-color);
+            align-self: flex-start;
+            border-top-left-radius: 0;
+        }
+
+        .user-message {
+            background-color: var(--secondary-color);
+            color: var(--white-color);
+            align-self: flex-end;
+            border-top-right-radius: 0;
+        }
+        
+        .status-message {
+            align-self: center;
+            background-color: #f8f9fa;
+            color: #6c757d;
+            font-size: 0.9em;
+            text-align: center;
+            width: fit-content;
+        }
+
+        #chat-input-form {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        #user-input {
+            flex-grow: 1;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            padding: 12px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #user-input:focus {
+            border-color: var(--secondary-color);
+        }
+
+        #send-button {
+            border: none;
+            background: var(--secondary-color);
+            color: white;
+            padding: 0 20px;
+            margin-left: 10px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+
+        #send-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        #send-button:hover:not(:disabled) {
+            background-color: #93709b;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 50px;
+        }
+
+        .loader span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--secondary-color);
+            margin: 0 2px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .loader .bounce1 { animation-delay: -0.32s; }
+        .loader .bounce2 { animation-delay: -0.16s; }
+
+        .typewriter-text {
+            overflow: hidden; 
+            white-space: pre-wrap;
+        }
+        
+        .source {
+            border-left: 3px solid var(--primary-color);
+            margin-top: 10px;
+            padding-left: 12px;
+            font-size: 0.85em;
+            background: #fdfcff;
+        }
+        .source strong { color: var(--secondary-color); }
+        .source a { color: var(--secondary-color); text-decoration: none; }
+        .source a:hover { text-decoration: underline; }
+        .source p { margin: 5px 0; max-height: 70px; overflow-y: auto; }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:rgba(255,255,255,0.8);"/>
+                        <stop offset="100%" style="stop-color:rgba(255,255,255,1);"/>
+                    </linearGradient>
+                </defs>
+                <path d="M20,30 Q50,10 80,30 T20,30" fill="url(#logoGradient)" stroke="white" stroke-width="3"/>
+                <circle cx="30" cy="70" r="10" fill="url(#logoGradient)"/>
+                <line x1="35" y1="60" x2="65" y2="40" stroke="white" stroke-width="5" stroke-linecap="round"/>
+                <circle cx="70" cy="70" r="10" fill="url(#logoGradient)"/>
+                <line x1="30" y1="70" x2="70" y2="70" stroke="white" stroke-width="5" stroke-linecap="round"/>
+            </svg>
+            <h1>Pipeline Assistant</h1>
+        </div>
+        <div class="chat-box" id="chat-box">
+             <!-- Chat messages will be appended here -->
+        </div>
+        <form id="chat-input-form">
+            <input type="text" id="user-input" placeholder="Enter a website URL to start..." required>
+            <button type="submit" id="send-button">Start</button>
+        </form>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const chatForm = document.getElementById('chat-input-form');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        let appState = 'AWAITING_URL'; // Can be AWAITING_URL, CRAWLING, READY_TO_CHAT
+        let crawlStatusInterval;
+
+        // Initial welcome message
+        window.onload = () => {
+            addMessage("Hello! I'm your Pipeline Assistant. Please provide a website URL to begin the process.", 'assistant');
+        };
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inputText = userInput.value.trim();
+            if (!inputText) return;
+
+            addMessage(inputText, 'user');
+            userInput.value = '';
+            sendButton.disabled = true;
+
+            if (appState === 'AWAITING_URL') {
+                handleUrlSubmission(inputText);
+            } else if (appState === 'READY_TO_CHAT') {
+                handleQuestionSubmission(inputText);
+            }
+        });
+        
+        function addMessage(text, type, content = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', `${type}-message`);
+            
+            if (type === 'assistant' && content) {
+                // Handle complex assistant message with sources
+                const answerP = document.createElement('p');
+                answerP.classList.add('typewriter-text');
+                messageDiv.appendChild(answerP);
+
+                let sourcesHTML = '';
+                if (content.sources && content.sources.length > 0) {
+                     sourcesHTML += '<h3>Sources Retrieved:</h3>';
+                     content.sources.forEach(source => {
+                        sourcesHTML += `
+                            <div class="source">
+                                <strong>URL:</strong> <a href="${source.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.url)}</a>
+                                <p>${escapeHtml(source.snippet)}</p>
+                            </div>`;
+                    });
+                }
+                
+                // Typewriter effect for the answer
+                typeWriter(answerP, text, () => {
+                    if(sourcesHTML) {
+                        const sourcesDiv = document.createElement('div');
+                        sourcesDiv.innerHTML = sourcesHTML;
+                        messageDiv.appendChild(sourcesDiv);
+                    }
+                    addMessage("Feel free to ask another question!", 'assistant');
+                });
+                
+            } else {
+                 messageDiv.innerHTML = text;
+            }
+
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        async function handleUrlSubmission(url) {
+            addMessage('<div class="loader"><span class="bounce1"></span><span class="bounce2"></span><span class="bounce3"></span></div>', 'status');
+            
+            try {
+                const response = await fetch('/start-crawl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error);
+
+                appState = 'CRAWLING';
+                userInput.placeholder = "Crawling in progress...";
+                userInput.disabled = true;
+                crawlStatusInterval = setInterval(updateCrawlStatus, 2500);
+
+            } catch (error) {
+                addMessage(`Error: ${error.message}`, 'assistant');
+                resetToInitialState();
+            }
+        }
+        
+        async function updateCrawlStatus() {
+             try {
+                const response = await fetch('/crawl-status');
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                // Update status message
+                const statusMsg = chatBox.querySelector('.status-message');
+                if (statusMsg) {
+                    statusMsg.innerHTML = `Crawling... Indexed ${data.crawled_pages.length} pages. <div class="loader"><span class="bounce1"></span><span class="bounce2"></span><span class="bounce3"></span></div>`;
+                }
+
+                if (!data.is_crawling) {
+                    clearInterval(crawlStatusInterval);
+                    chatBox.querySelector('.status-message')?.remove();
+
+                    if (data.crawled_pages.length > 0) {
+                        appState = 'READY_TO_CHAT';
+                        addMessage(`Crawl complete! I've indexed ${data.crawled_pages.length} pages. What would you like to know?`, 'assistant');
+                        userInput.placeholder = "Ask a question about the website...";
+                        userInput.disabled = false;
+                        sendButton.disabled = false;
+                        sendButton.textContent = 'Ask';
+                    } else {
+                         addMessage("Crawl finished, but no content was found. Please try another URL.", 'assistant');
+                         resetToInitialState();
+                    }
+                }
+            } catch (error) {
+                clearInterval(crawlStatusInterval);
+                chatBox.querySelector('.status-message')?.remove();
+                addMessage(`Crawl failed: ${error.message}`, 'assistant');
+                resetToInitialState();
+            }
+        }
+        
+        async function handleQuestionSubmission(question) {
+            addMessage('<div class="loader"><span class="bounce1"></span><span class="bounce2"></span><span class="bounce3"></span></div>', 'status');
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+                const result = await response.json();
+                chatBox.querySelector('.status-message')?.remove();
+                if (!response.ok) throw new Error(result.error);
+                
+                addMessage(result.answer, 'assistant', result);
+
+            } catch(error) {
+                chatBox.querySelector('.status-message')?.remove();
+                addMessage(`Error: ${error.message}`, 'assistant');
+            } finally {
+                 sendButton.disabled = false;
+            }
+        }
+        
+        function resetToInitialState() {
+            appState = 'AWAITING_URL';
+            userInput.placeholder = "Enter a website URL to start...";
+            userInput.disabled = false;
+            sendButton.disabled = false;
+            sendButton.textContent = 'Start';
+        }
+
+        function typeWriter(element, txt, callback) {
+            let i = 0;
+            element.innerHTML = '';
+            function type() {
+                if (i < txt.length) {
+                    element.innerHTML += txt.charAt(i);
+                    i++;
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    setTimeout(type, 20); // Adjust speed here
+                } else if (callback) {
+                    callback();
+                }
+            }
+            type();
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+    </script>
+</body>
+</html>
+
