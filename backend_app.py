@@ -73,7 +73,7 @@ class VectorStore:
     """
     def __init__(self, chunk_size=1000, chunk_overlap=100):
         # Configure the Gemini API key
-        api_key = "AIzaSyDtfHZUb9AW6M0S3VlzHSf2QriejZkvwwU"
+        api_key = "******"
         if not api_key:
             raise ValueError("GOOGLE_API_KEY environment variable not set.")
         genai.configure(api_key=api_key)
@@ -191,4 +191,5 @@ class QAEngine:
                 "sources": [],
                 "retrieval_time": retrieval_time
             }
+
 
